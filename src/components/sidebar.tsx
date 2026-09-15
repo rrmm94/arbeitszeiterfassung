@@ -3,8 +3,15 @@
 import { CalendarDays, FileDown, LayoutDashboard, Plus, Settings, Timer } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
 import { useEntryModal } from "./entry-modal-provider";
+
+function currentSchoolYearLabel(startMonth: number): string {
+  const now = new Date();
+  const y = now.getMonth() + 1 >= startMonth ? now.getFullYear() : now.getFullYear() - 1;
+  return `Schuljahr ${y}/${(y + 1).toString().slice(-2)}`;
+}
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -17,6 +24,14 @@ const NAV_ITEMS = [
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { openEntryModal } = useEntryModal();
+  const [yearLabel, setYearLabel] = useState(currentSchoolYearLabel(8));
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => setYearLabel(currentSchoolYearLabel(s.schoolYearStartMonth)))
+      .catch(() => {});
+  }, []);
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-bg px-3 py-4">
@@ -58,7 +73,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="mt-auto px-2 pt-4 text-[11px] text-text-tertiary">Schuljahr 2026/27</div>
+      <div className="mt-auto px-2 pt-4 text-[11px] text-text-tertiary">{yearLabel}</div>
     </aside>
   );
 }
