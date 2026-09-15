@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Einstellungen (Singleton, id ist immer 1)
+model Settings {
+  id Int @id @default(1)
+
+  // Unterrichtsverpflichtung
+  fullTimeUE     Float @default(25.5) // Vollzeit-Unterrichtsverpflichtung in UE (45 Min) laut Niedersachsen
+  fullTimeBlocks Float @default(15) // tatsächlich eingeteilte Blöcke (à 75 Min) bei Vollzeit
+  employmentFactor Float @default(1.0) // Teilzeitfaktor, 1.0 = Vollzeit
+
+  // Vergleichswerte klassische Vollzeitstelle
+  compareWeeklyHours  Float @default(40)
+  compareVacationDays Float @default(30)
+  vacationDaysPerYear Float @default(30)
+
+  // Schuljahr
+  schoolYearStartMonth Int @default(8) // 1-12, Start des Schuljahres (August)
+  halfYearSwitchMonth  Int @default(2) // Monat, ab dem HJ2-Stundenplan gilt
+  halfYearSwitchDay    Int @default(1)
+
+  // Region für Feiertage/Ferien
+  federalState String @default("DE-NI")
+
+  updatedAt DateTime @updatedAt
+}
+
+// Blockzeiten (1.-4. Block, editierbar)
+model BlockDefinition {
+  id        Int    @id @default(autoincrement())
+  number    Int    @unique // 1-4
+  label     String
+  startTime String // "08:00"
+  endTime   String // "09:15"
+}
+
+enum HalfYear {
+  HY1
+  HY2
+}
+
+enum SlotType {
+  UNTERRICHT
+  BEREITSCHAFT
+  FREI
+}
+
+// Stundenplan-Slot: ein Block an einem Wochentag in einem Halbjahr
+model TimetableEntry {
+  id          Int      @id @default(autoincrement())
+  halfYear    HalfYear
+  weekday     Int // 1=Montag ... 5=Freitag
+  blockNumber Int // 1-4
+  type        SlotType @default(FREI)
+  subject     String?
+  room        String?
+
+  @@unique([halfYear, weekday, blockNumber])
+}
+
+// Arbeitskategorien für außerschulische Tätigkeiten
+model WorkCategory {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  color     String  @default("#6b7280")
+  archived  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  homeSegments HomeSegment[]
+}
+
+enum HolidaySource {
+  api
+  manual
+}
+
+model PublicHoliday {
+  id     Int           @id @default(autoincrement())
+  date   DateTime      @unique
+  name   String
+  source HolidaySource @default(api)
+}
+
+model SchoolVacation {
+  id        Int           @id @default(autoincrement())
+  startDate DateTime
+  endDate   DateTime
+  name      String
+  source    HolidaySource @default(api)
+}
+
+model SickLeave {
+  id        Int      @id @default(autoincrement())
+  startDate DateTime
+  endDate   DateTime
+  note      String?
+}
+
+model Vacation {
+  id        Int      @id @default(autoincrement())
+  startDate DateTime
+  endDate   DateTime
+  note      String?
+}
+
+// Ein Tageseintrag in der Zeiterfassung
+model DayEntry {
+  id                  Int      @id @default(autoincrement())
+  date                DateTime @unique
+  breakMinutes        Int      @default(0)
+  blocksOverride      Int? // manuelle Abweichung von der aus dem Stundenplan bestimmten Blockanzahl
+  blocksOverrideReason String?
+  scheduleNote        String? // Anmerkung bei Abweichung vom regulären Stundenplan
+  note                String? // allgemeine Anmerkung zum Tag
+
+  schoolSegments SchoolSegment[]
+  homeSegments   HomeSegment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Zeitspanne, die in der Schule gearbeitet wurde (Unterricht + Zusatzzeiten vor/nach Schule)
+model SchoolSegment {
+  id         Int      @id @default(autoincrement())
+  dayEntryId Int
+  dayEntry   DayEntry @relation(fields: [dayEntryId], references: [id], onDelete: Cascade)
+  start      String // "08:00"
+  end        String // "09:15"
+  isExtra    Boolean  @default(false) // Zusatzstunde außerhalb des regulären Stundenplans
+  reason     String? // Begründung bei Zusatzstunde
+
+  @@index([dayEntryId])
+}
+
+// Außerschulische Arbeitszeit (Vorbereitung, Fortbildung, ...)
+model HomeSegment {
+  id          Int          @id @default(autoincrement())
+  dayEntryId  Int
+  dayEntry    DayEntry     @relation(fields: [dayEntryId], references: [id], onDelete: Cascade)
+  start       String
+  end         String
+  categoryId  Int
+  category    WorkCategory @relation(fields: [categoryId], references: [id])
+  description String?
+
+  @@index([dayEntryId])
+  @@index([categoryId])
+}

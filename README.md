@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Arbeitszeit
 
-## Getting Started
+Selbst gehostete Arbeitszeiterfassung für Lehrkräfte in Niedersachsen (75-Minuten-Blockmodell).
+Erfasst Schulzeit, außerschulische Arbeit (kategorisiert), Unterrichtsblöcke, Pausen, Krankheit
+und Urlaub – und vergleicht das mit dem Soll aus dem hinterlegten Stundenplan bzw. einer
+klassischen 40h-Woche.
 
-First, run the development server:
+## Funktionen
+
+- Dashboard mit Monatsübersicht, Über-/Minderstunden, Auslastung, Verlauf der letzten Kalenderwochen
+- Kalenderansicht mit Farbkennzeichnung (Werktag/Wochenende/Feiertag/Ferien/Krank/Urlaub)
+- Stundenplan-Editor für 1. und 2. Halbjahr (Unterricht/Bereitschaft/Frei je Block und Wochentag)
+- Automatischer Abgleich von Ist- und Soll-Arbeitszeit sowie Unterrichtsblöcken
+- Automatisches Laden von Feiertagen & Schulferien (OpenHolidaysAPI), manuell überschreibbar
+- Krankmeldungen und Urlaub als Zeiträume, fließen korrekt in die Berechnung ein
+- Frei definierbare Kategorien für außerschulische Arbeit
+- PDF-Export (Zusammenfassung oder vollständiger Kalender) für Schuljahr/Halbjahr/Monat/Zeitraum
+- Einmaliger Import der bisherigen Excel-Arbeitszeiterfassung
+- Minimalistisches Design mit Light- und Dark-Mode
+
+## Lokale Entwicklung
+
+Voraussetzung: Node.js 20+.
 
 ```bash
+npm install
+npm run db:migrate   # legt prisma/dev.db an
+npm run db:seed       # Standard-Blockzeiten & Kategorien
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App läuft unter http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment auf Unraid (Docker)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Repository auf den Unraid-Server bringen (z.B. per `git clone` in ein Verzeichnis wie
+   `/mnt/user/appdata/arbeitszeit-src`).
+2. Mit Docker Compose starten:
 
-## Learn More
+   ```bash
+   docker compose up -d --build
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+   Das legt automatisch einen Ordner `./data` an, in dem die SQLite-Datenbank
+   (`app.db`) persistent gespeichert wird. Beim Start werden Datenbank-Migrationen
+   automatisch ausgeführt.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. App ist danach unter `http://<unraid-ip>:3000` erreichbar. Der Port lässt sich in
+   `docker-compose.yml` anpassen.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. Über die Unraid-GUI kann das Compose-Setup alternativ auch über das
+   "Docker Compose Manager"-Plugin eingebunden werden, falls kein Terminalzugriff
+   gewünscht ist.
 
-## Deploy on Vercel
+### Update
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+git pull
+docker compose up -d --build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Die Datenbank in `./data` bleibt dabei erhalten.
+
+### Excel-Import
+
+Unter **Einstellungen → Excel-Import** kann einmalig die bisherige
+`.xlsx`-Arbeitszeiterfassung hochgeladen werden. Schul-/Zusatzzeiten, Pausen,
+Blockanzahl und Notizen werden übernommen; Kranktage und Urlaub werden als
+Zeiträume angelegt. Feiertage/Ferien werden nicht importiert, da diese automatisch
+geladen werden.
+
+## Technik
+
+Next.js (App Router) · TypeScript · Prisma + SQLite · Tailwind CSS 4 · Recharts ·
+@react-pdf/renderer · OpenHolidaysAPI
