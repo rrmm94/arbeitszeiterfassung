@@ -138,13 +138,26 @@ export default function CalendarPage() {
                           {day.status === "WOCHENENDE" ? "" : day.status.slice(0, 3)}
                         </span>
                       )}
+                      {day.status === "WERKTAG" && day.noTeachingReason && (
+                        <span
+                          className="text-[9.5px] font-medium uppercase tracking-wide text-text-tertiary"
+                          title={day.noTeachingReason}
+                        >
+                          FB
+                        </span>
+                      )}
                     </div>
                     {(day.nettoHours > 0 || day.hasEntry) && (
                       <div className="flex flex-col gap-0.5">
                         <span className="text-[12px] tabular text-text-primary">{formatHours(day.nettoHours)}</span>
-                        {day.status === "WERKTAG" && (
+                        {day.status === "WERKTAG" && !day.noTeachingReason && (
                           <span className="text-[10.5px] tabular text-text-tertiary">
                             {day.blocksWorked}/{day.blocksSoll} Blöcke
+                          </span>
+                        )}
+                        {day.status === "WERKTAG" && day.noTeachingReason && (
+                          <span className="truncate text-[10.5px] text-text-tertiary" title={day.noTeachingReason}>
+                            {day.noTeachingReason}
                           </span>
                         )}
                       </div>

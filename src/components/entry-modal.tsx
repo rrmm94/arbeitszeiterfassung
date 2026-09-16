@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, RotateCcw, ThermometerSun, Plane } from "lucide-react";
+import { Plus, Trash2, RotateCcw, ThermometerSun, Plane, GraduationCap } from "lucide-react";
 import { Button, Field, inputClass, Modal, ModalHeader, StatusBadge, TimeInput } from "./ui";
 import type { DayResponseDTO, HomeSegmentDTO, SchoolSegmentDTO, WorkCategoryDTO } from "@/lib/api-types";
 import { formatHours } from "@/lib/time";
@@ -34,12 +34,15 @@ export function EntryModal({
   const [breakMinutes, setBreakMinutes] = useState(0);
   const [blocksOverride, setBlocksOverride] = useState<number>(0);
   const [blocksOverrideReason, setBlocksOverrideReason] = useState("");
+  const [noTeachingReason, setNoTeachingReason] = useState("");
   const [scheduleNote, setScheduleNote] = useState("");
   const [homeSegments, setHomeSegments] = useState<HomeSegmentDTO[]>([]);
   const [note, setNote] = useState("");
 
   const [showSick, setShowSick] = useState(false);
   const [showVacation, setShowVacation] = useState(false);
+  const [showNoTeaching, setShowNoTeaching] = useState(false);
+  const [noTeachingRangeReason, setNoTeachingRangeReason] = useState("Fortbildung");
   const [rangeEnd, setRangeEnd] = useState(date);
 
   const load = useCallback(async (d: string) => {
@@ -58,6 +61,7 @@ export function EntryModal({
         setBreakMinutes(dayData.entry.breakMinutes);
         setBlocksOverride(dayData.entry.blocksOverride ?? dayData.suggested?.blocksSoll ?? 0);
         setBlocksOverrideReason(dayData.entry.blocksOverrideReason ?? "");
+        setNoTeachingReason(dayData.entry.noTeachingReason ?? "");
         setScheduleNote(dayData.entry.scheduleNote ?? "");
         setHomeSegments(dayData.entry.homeSegments.map((s) => ({ ...s })));
         setNote(dayData.entry.note ?? "");
@@ -66,6 +70,7 @@ export function EntryModal({
         setBreakMinutes(dayData.suggested.breakMinutes);
         setBlocksOverride(dayData.suggested.blocksSoll);
         setBlocksOverrideReason("");
+        setNoTeachingReason("");
         setScheduleNote("");
         setHomeSegments([]);
         setNote("");
@@ -74,6 +79,7 @@ export function EntryModal({
         setBreakMinutes(0);
         setBlocksOverride(0);
         setBlocksOverrideReason("");
+        setNoTeachingReason("");
         setScheduleNote("");
         setHomeSegments([]);
         setNote("");
@@ -101,7 +107,8 @@ export function EntryModal({
   const status = data?.computed.status ?? "WERKTAG";
   const isKrank = status === "KRANK";
   const isUrlaub = status === "URLAUB";
-  const schoolDisabled = isKrank || isUrlaub;
+  const hasNoTeaching = !!noTeachingReason.trim();
+  const schoolDisabled = isKrank || isUrlaub || hasNoTeaching;
 
   const liveNettoMinutes = useMemo(() => {
     const schoolMin = schoolSegments.reduce((sum, s) => {
@@ -130,6 +137,7 @@ export function EntryModal({
           breakMinutes: schoolDisabled ? 0 : breakMinutes,
           blocksOverride: schoolDisabled ? null : blocksOverride,
           blocksOverrideReason: blocksOverrideReason || null,
+          noTeachingReason: hasNoTeaching ? noTeachingReason.trim() : null,
           scheduleNote: scheduleNote || null,
           homeSegments,
           note: note || null,
@@ -175,6 +183,17 @@ export function EntryModal({
     load(date);
   }
 
+  async function submitNoTeachingRange() {
+    await fetch("/api/day/no-teaching", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startDate: date, endDate: rangeEnd, reason: noTeachingRangeReason }),
+    });
+    emitUpdated();
+    setShowNoTeaching(false);
+    load(date);
+  }
+
   function resetToTimetable() {
     if (!data?.suggested) return;
     setSchoolSegments(data.suggested.segments.map((s) => ({ ...s, isExtra: false, reason: null })));
@@ -212,6 +231,33 @@ export function EntryModal({
                 {isKrank
                   ? "Krankheitstag – Schulzeit wird nicht erfasst."
                   : "Urlaubstag – Schulzeit wird nicht erfasst, außerschulische Arbeit ist weiterhin möglich."}
+              </div>
+            )}
+
+            {!isKrank && !isUrlaub && (
+              <div className="flex flex-col gap-1.5 rounded-md border border-border p-2.5">
+                <label className="flex items-center gap-2 text-[12.5px] text-text-primary">
+                  <input
+                    type="checkbox"
+                    checked={hasNoTeaching}
+                    onChange={(e) => setNoTeachingReason(e.target.checked ? noTeachingReason || "Fortbildung" : "")}
+                  />
+                  Kein Unterricht an diesem Tag (z.B. Fortbildung, Exkursion, dienstliche Abwesenheit)
+                </label>
+                {hasNoTeaching && (
+                  <>
+                    <input
+                      placeholder="Grund (z.B. Fortbildung Mathe Startchancen)…"
+                      value={noTeachingReason}
+                      onChange={(e) => setNoTeachingReason(e.target.value)}
+                      className={`${inputClass} w-full`}
+                    />
+                    <p className="text-[11.5px] text-text-tertiary">
+                      Unterrichtsblöcke-Soll entfällt für diesen Tag, die allgemeine Arbeitszeit-Soll bleibt
+                      bestehen. Zeit für die Veranstaltung kannst du unten als außerschulische Arbeit erfassen.
+                    </p>
+                  </>
+                )}
               </div>
             )}
 
@@ -420,6 +466,12 @@ export function EntryModal({
                 >
                   <Plane size={13} /> Urlaub eintragen
                 </button>
+                <button
+                  onClick={() => setShowNoTeaching((v) => !v)}
+                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] text-text-secondary hover:bg-bg-hover"
+                >
+                  <GraduationCap size={13} /> Fortbildung (Zeitraum)
+                </button>
               </div>
               {showSick && (
                 <div className="flex items-center gap-2 rounded-md bg-bg-hover p-2.5">
@@ -433,6 +485,19 @@ export function EntryModal({
                   <span className="text-[12px] text-text-secondary">von {date} bis</span>
                   <input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className={inputClass} />
                   <Button size="sm" onClick={submitVacation}>Speichern</Button>
+                </div>
+              )}
+              {showNoTeaching && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md bg-bg-hover p-2.5">
+                  <span className="text-[12px] text-text-secondary">von {date} bis</span>
+                  <input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className={inputClass} />
+                  <input
+                    placeholder="Grund (z.B. Fortbildung Mathe Startchancen)…"
+                    value={noTeachingRangeReason}
+                    onChange={(e) => setNoTeachingRangeReason(e.target.value)}
+                    className={`${inputClass} min-w-[200px] flex-1`}
+                  />
+                  <Button size="sm" onClick={submitNoTeachingRange}>Speichern</Button>
                 </div>
               )}
             </section>

@@ -117,6 +117,10 @@ model DayEntry {
   breakMinutes        Int      @default(0)
   blocksOverride      Int? // manuelle Abweichung von der aus dem Stundenplan bestimmten Blockanzahl
   blocksOverrideReason String?
+  // Wenn gesetzt: an diesem Tag fand für die Lehrkraft kein Unterricht statt (z.B. Fortbildung,
+  // Exkursion, dienstliche Abwesenheit) - die Unterrichtsblöcke-Soll wird auf 0 gesetzt, die
+  // allgemeine Arbeitszeit-Soll bleibt davon unberührt.
+  noTeachingReason    String?
   scheduleNote        String? // Anmerkung bei Abweichung vom regulären Stundenplan
   note                String? // allgemeine Anmerkung zum Tag
 

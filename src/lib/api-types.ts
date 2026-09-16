@@ -23,6 +23,7 @@ export interface DayEntryDTO {
   breakMinutes: number;
   blocksOverride: number | null;
   blocksOverrideReason: string | null;
+  noTeachingReason: string | null;
   scheduleNote: string | null;
   note: string | null;
   schoolSegments: SchoolSegmentDTO[];
@@ -48,6 +49,7 @@ export interface DayComputedDTO {
   sollHours: number;
   diffHours: number;
   hasEntry: boolean;
+  noTeachingReason: string | null;
 }
 
 export interface SuggestedPlanDTO {

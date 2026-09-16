@@ -67,14 +67,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ date: st
     ? null
     : Number(body.blocksOverride);
   const blocksOverrideReason: string | null = body.blocksOverrideReason || null;
+  const noTeachingReason: string | null = body.noTeachingReason || null;
   const scheduleNote: string | null = body.scheduleNote || null;
   const note: string | null = body.note || null;
 
   const result = await db.$transaction(async (tx) => {
     const entry = await tx.dayEntry.upsert({
       where: { date },
-      update: { breakMinutes, blocksOverride, blocksOverrideReason, scheduleNote, note },
-      create: { date, breakMinutes, blocksOverride, blocksOverrideReason, scheduleNote, note },
+      update: { breakMinutes, blocksOverride, blocksOverrideReason, noTeachingReason, scheduleNote, note },
+      create: { date, breakMinutes, blocksOverride, blocksOverrideReason, noTeachingReason, scheduleNote, note },
     });
 
     await tx.schoolSegment.deleteMany({ where: { dayEntryId: entry.id } });

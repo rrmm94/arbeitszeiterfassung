@@ -35,6 +35,7 @@ export interface DayCalcResult {
   sollHours: number;
   diffHours: number;
   hasEntry: boolean;
+  noTeachingReason: string | null;
 }
 
 export function computeDaySoll(
@@ -113,7 +114,18 @@ export function computeDay(
   timetable: TimetableEntry[]
 ): DayCalcResult {
   const { status, label } = classifyDay(date, ctx);
-  const { sollMinutes, blocksSoll, bereitschaftBlocks } = computeDaySoll(date, status, settings, timetable);
+  const { sollMinutes, blocksSoll: baseBlocksSoll, bereitschaftBlocks: baseBereitschaftBlocks } = computeDaySoll(
+    date,
+    status,
+    settings,
+    timetable
+  );
+
+  // An Tagen ohne Unterricht (z.B. Fortbildung, Exkursion) entfällt die Unterrichtsverpflichtung,
+  // die allgemeine Arbeitszeit-Soll (sollMinutes) bleibt davon unberührt.
+  const noTeachingReason = entry?.noTeachingReason ?? null;
+  const blocksSoll = noTeachingReason ? 0 : baseBlocksSoll;
+  const bereitschaftBlocks = noTeachingReason ? 0 : baseBereitschaftBlocks;
 
   const schoolMinutesRaw = entry?.schoolSegments.reduce((sum, s) => sum + segmentMinutes(s.start, s.end), 0) ?? 0;
   const breakMinutes = entry?.breakMinutes ?? 0;
@@ -156,5 +168,6 @@ export function computeDay(
     sollHours,
     diffHours: Math.round((nettoHours - sollHours) * 100) / 100,
     hasEntry: !!entry,
+    noTeachingReason,
   };
 }
