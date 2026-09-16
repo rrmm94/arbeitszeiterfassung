@@ -6,6 +6,8 @@ const MONTH_SHEETS = [
   "Februar", "März", "April", "Mai", "Juni", "Juli",
 ];
 
+const IMPORT_CATEGORY_NAME = "Zusatzarbeit (Import)";
+
 const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
 
 function serialToUtcDate(serial: number): Date {
@@ -25,9 +27,17 @@ function serialToMinutes(serial: number): number {
   return Math.round(((serial % 1) + 1) % 1 * 24 * 60);
 }
 
+interface Segment {
+  start: string;
+  end: string;
+}
+
 interface ImportedDay {
   date: Date;
-  segments: { start: string; end: string }[];
+  // Spalten D/E: tatsächliche Zeit in der Schule
+  schoolSegments: Segment[];
+  // Spalten F/G und H/I ("Zusatz 1"/"Zusatz 2"): zusätzliche Arbeit, nicht zwingend an der Schule
+  extraSegments: Segment[];
   breakMinutes: number;
   blocksOverride: number | null;
   note: string | null;
@@ -46,6 +56,13 @@ function cellText(sheet: XLSX.WorkSheet, addr: string): string | null {
   return String(cell.v).trim();
 }
 
+function readSegment(sheet: XLSX.WorkSheet, row: number, startCol: string, endCol: string): Segment | null {
+  const s = cellNumber(sheet, `${startCol}${row}`);
+  const e = cellNumber(sheet, `${endCol}${row}`);
+  if (s === null || e === null) return null;
+  return { start: serialToHHMM(s), end: serialToHHMM(e) };
+}
+
 export function parseWorkbook(buffer: ArrayBuffer): ImportedDay[] {
   const wb = XLSX.read(buffer, { type: "buffer", cellFormula: false });
   const days: ImportedDay[] = [];
@@ -59,14 +76,14 @@ export function parseWorkbook(buffer: ArrayBuffer): ImportedDay[] {
       if (dateSerial === null) continue;
       const date = serialToUtcDate(dateSerial);
 
-      const segments: { start: string; end: string }[] = [];
-      const pairs: [string, string][] = [["D", "E"], ["F", "G"], ["H", "I"]];
-      for (const [startCol, endCol] of pairs) {
-        const s = cellNumber(sheet, `${startCol}${row}`);
-        const e = cellNumber(sheet, `${endCol}${row}`);
-        if (s !== null && e !== null) {
-          segments.push({ start: serialToHHMM(s), end: serialToHHMM(e) });
-        }
+      const schoolSegments: Segment[] = [];
+      const schoolSeg = readSegment(sheet, row, "D", "E");
+      if (schoolSeg) schoolSegments.push(schoolSeg);
+
+      const extraSegments: Segment[] = [];
+      for (const [startCol, endCol] of [["F", "G"], ["H", "I"]] as [string, string][]) {
+        const seg = readSegment(sheet, row, startCol, endCol);
+        if (seg) extraSegments.push(seg);
       }
 
       const pauseSerial = cellNumber(sheet, `J${row}`);
@@ -75,9 +92,11 @@ export function parseWorkbook(buffer: ArrayBuffer): ImportedDay[] {
       const note = cellText(sheet, `P${row}`);
       const absence = cellText(sheet, `N${row}`) as ImportedDay["absence"];
 
-      if (segments.length === 0 && !blocksOverride && !note && !absence) continue;
+      if (schoolSegments.length === 0 && extraSegments.length === 0 && !blocksOverride && !note && !absence) {
+        continue;
+      }
 
-      days.push({ date, segments, breakMinutes, blocksOverride, note, absence });
+      days.push({ date, schoolSegments, extraSegments, breakMinutes, blocksOverride, note, absence });
     }
   }
 
@@ -98,8 +117,19 @@ function groupConsecutiveDates(dates: Date[]): { startDate: Date; endDate: Date 
   return ranges;
 }
 
+async function ensureImportCategory(): Promise<number> {
+  const existing = await db.workCategory.findUnique({ where: { name: IMPORT_CATEGORY_NAME } });
+  if (existing) return existing.id;
+  const maxSort = await db.workCategory.aggregate({ _max: { sortOrder: true } });
+  const created = await db.workCategory.create({
+    data: { name: IMPORT_CATEGORY_NAME, color: "#9ca3af", sortOrder: (maxSort._max.sortOrder ?? 0) + 1 },
+  });
+  return created.id;
+}
+
 export async function importExcelBuffer(buffer: ArrayBuffer) {
   const days = parseWorkbook(buffer);
+  const importCategoryId = await ensureImportCategory();
 
   const sickDates = days.filter((d) => d.absence === "Krank").map((d) => d.date);
   const urlaubDates = days.filter((d) => d.absence === "Urlaub").map((d) => d.date);
@@ -126,7 +156,9 @@ export async function importExcelBuffer(buffer: ArrayBuffer) {
   let entriesSkipped = 0;
   for (const day of days) {
     if (day.absence === "Krank") continue; // keine Arbeitszeit an Krankheitstagen
-    if (day.segments.length === 0 && !day.blocksOverride && !day.note) continue;
+    if (day.schoolSegments.length === 0 && day.extraSegments.length === 0 && !day.blocksOverride && !day.note) {
+      continue;
+    }
 
     const existing = await db.dayEntry.findUnique({ where: { date: day.date } });
     if (existing) {
@@ -134,7 +166,8 @@ export async function importExcelBuffer(buffer: ArrayBuffer) {
       continue;
     }
 
-    const segments = day.absence === "Urlaub" ? [] : day.segments;
+    // An Schule findet an Urlaubstagen nicht statt, Zusatzarbeit (außerschulisch) bleibt möglich.
+    const schoolSegments = day.absence === "Urlaub" ? [] : day.schoolSegments;
 
     await db.dayEntry.create({
       data: {
@@ -142,7 +175,16 @@ export async function importExcelBuffer(buffer: ArrayBuffer) {
         breakMinutes: day.absence === "Urlaub" ? 0 : day.breakMinutes,
         blocksOverride: day.absence === "Urlaub" ? null : day.blocksOverride,
         note: day.note,
-        schoolSegments: { create: segments.map((s) => ({ start: s.start, end: s.end, isExtra: false })) },
+        schoolSegments: {
+          create: schoolSegments.map((s) => ({ start: s.start, end: s.end, isExtra: false })),
+        },
+        homeSegments: {
+          create: day.extraSegments.map((s) => ({
+            start: s.start,
+            end: s.end,
+            categoryId: importCategoryId,
+          })),
+        },
       },
     });
     entriesCreated++;

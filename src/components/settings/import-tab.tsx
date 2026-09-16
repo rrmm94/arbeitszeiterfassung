@@ -42,10 +42,13 @@ export function ImportTab() {
   return (
     <div className="flex max-w-xl flex-col gap-4">
       <p className="text-[12.5px] text-text-secondary">
-        Importiert Tageseinträge aus der bisherigen Excel-Arbeitszeiterfassung (Schule-, Zusatz- und
-        Pausenzeiten, Blockanzahl, Notizen sowie Kranktage/Urlaub). Feiertage und Ferien werden nicht
-        importiert, da diese automatisch geladen werden. Bereits vorhandene Tageseinträge werden nicht
-        überschrieben.
+        Importiert Tageseinträge aus der bisherigen Excel-Arbeitszeiterfassung: Spalten D/E (Schule) werden
+        als Schulzeit übernommen, die Spalten F/G und H/I (&bdquo;Zusatz 1&ldquo;/&bdquo;Zusatz 2&ldquo;) als
+        außerschulische Arbeit unter der Kategorie &bdquo;Zusatzarbeit (Import)&ldquo; – diese Einträge kannst
+        du danach in der Kalenderansicht noch einer passenderen Kategorie zuordnen. Pause (J), Blockanzahl (M)
+        und Ereignis-Notizen (P) werden ebenfalls übernommen, ebenso Kranktage/Urlaub (Spalte N). Feiertage und
+        Ferien werden nicht importiert, da diese automatisch geladen werden. Bereits vorhandene Tageseinträge
+        werden nicht überschrieben.
       </p>
 
       <input ref={fileRef} type="file" accept=".xlsx" className="text-[12.5px] text-text-secondary" />
