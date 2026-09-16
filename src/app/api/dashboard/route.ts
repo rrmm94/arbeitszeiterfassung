@@ -21,33 +21,35 @@ export async function GET(req: Request) {
   const startYear = schoolYearStartYear(today, settings);
   const { start: schoolYearStart, end: schoolYearEnd } = schoolYearRange(startYear, settings);
 
-  const weeksRangeStart = addDays(today, -7 * 9);
-
-  const [monthSummary, schoolYearSummary, weeksSummary, vacationTaken] = await Promise.all([
+  const [monthSummary, schoolYearSummary, vacationTaken] = await Promise.all([
     computeRangeSummary(monthStart, monthEnd),
     computeRangeSummary(schoolYearStart, schoolYearEnd < today ? schoolYearEnd : today),
-    computeRangeSummary(weeksRangeStart, today),
     db.vacation.findMany({
       where: { AND: [{ startDate: { lte: schoolYearEnd } }, { endDate: { gte: schoolYearStart } }] },
     }),
   ]);
 
-  const weekBuckets = new Map<string, { weekNumber: number; nettoHours: number; sollHours: number }>();
-  for (const day of weeksSummary.days) {
+  // Kalenderwochen des ausgewählten Monats (nicht der letzten N Wochen ab heute), damit
+  // der Verlauf im Dashboard zur Monats-Navigation passt.
+  const weekBuckets = new Map<string, { year: number; weekNumber: number; nettoHours: number; sollHours: number }>();
+  for (const day of monthSummary.days) {
     const key = `${day.date.getUTCFullYear()}-${day.weekNumber}`;
-    const bucket = weekBuckets.get(key) ?? { weekNumber: day.weekNumber, nettoHours: 0, sollHours: 0 };
+    const bucket = weekBuckets.get(key) ?? {
+      year: day.date.getUTCFullYear(),
+      weekNumber: day.weekNumber,
+      nettoHours: 0,
+      sollHours: 0,
+    };
     bucket.nettoHours += day.nettoHours;
     bucket.sollHours += day.sollHours;
     weekBuckets.set(key, bucket);
   }
-  const weeks = [...weekBuckets.entries()]
-    .map(([key, v]) => ({
-      key,
-      weekNumber: v.weekNumber,
-      nettoHours: Math.round(v.nettoHours * 100) / 100,
-      sollHours: Math.round(v.sollHours * 100) / 100,
-    }))
-    .slice(-8);
+  const weeks = [...weekBuckets.values()].map((v) => ({
+    key: `${v.year}-${v.weekNumber}`,
+    weekNumber: v.weekNumber,
+    nettoHours: Math.round(v.nettoHours * 100) / 100,
+    sollHours: Math.round(v.sollHours * 100) / 100,
+  }));
 
   let vacationDaysUsed = 0;
   for (const v of vacationTaken) {

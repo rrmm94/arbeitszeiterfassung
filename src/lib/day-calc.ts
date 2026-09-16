@@ -141,9 +141,12 @@ export function computeDay(
 
   const nettoMinutes = schoolMinutes + homeMinutes;
 
+  // IST-Blöcke werden nur gezählt, wenn für den Tag tatsächlich ein Eintrag existiert -
+  // ansonsten würde ein für die Zukunft geplanter Stundenplan fälschlich als bereits
+  // geleistete Arbeit in die Berechnung einfließen.
   let blocksWorked = 0;
-  if (status === "WERKTAG") {
-    blocksWorked = entry?.blocksOverride ?? blocksSoll;
+  if (status === "WERKTAG" && entry) {
+    blocksWorked = entry.blocksOverride ?? blocksSoll;
   }
 
   const nettoHours = minutesToHours(nettoMinutes);

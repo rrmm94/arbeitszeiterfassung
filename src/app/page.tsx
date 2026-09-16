@@ -154,7 +154,7 @@ function DashboardContent({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-border bg-bg-panel p-4 lg:col-span-2">
-          <h3 className="mb-3 text-[12.5px] font-medium text-text-primary">Verlauf letzte Kalenderwochen</h3>
+          <h3 className="mb-3 text-[12.5px] font-medium text-text-primary">Kalenderwochen in diesem Monat</h3>
           <WeeklyChart weeks={weeks} />
         </div>
 
