@@ -13,9 +13,12 @@ klassischen 40h-Woche.
 - Automatischer Abgleich von Ist- und Soll-Arbeitszeit sowie Unterrichtsblöcken
 - Automatisches Laden von Feiertagen & Schulferien (OpenHolidaysAPI), manuell überschreibbar
 - Krankmeldungen und Urlaub als Zeiträume, fließen korrekt in die Berechnung ein
+- Tage ohne Unterricht (Fortbildung, Exkursion) als solche markierbar – Unterrichtsblöcke-Soll entfällt,
+  Arbeitszeit-Soll bleibt bestehen
 - Frei definierbare Kategorien für außerschulische Arbeit
 - PDF-Export (Zusammenfassung oder vollständiger Kalender) für Schuljahr/Halbjahr/Monat/Zeitraum
 - Einmaliger Import der bisherigen Excel-Arbeitszeiterfassung
+- Vollständiges Datenbank-Backup (Export/Import als JSON) unter Einstellungen → Backup
 - Minimalistisches Design mit Light- und Dark-Mode
 
 ## Lokale Entwicklung
@@ -33,8 +36,13 @@ App läuft unter http://localhost:3000.
 
 ## Deployment auf Unraid (Docker)
 
-1. Repository auf den Unraid-Server bringen (z.B. per `git clone` in ein Verzeichnis wie
-   `/mnt/user/appdata/arbeitszeit-src`).
+1. Repository auf den Unraid-Server bringen:
+
+   ```bash
+   git clone https://github.com/rrmm94/arbeitszeiterfassung.git
+   ```
+
+   (z.B. in ein Verzeichnis wie `/mnt/user/appdata/arbeitszeit-src`).
 2. Mit Docker Compose starten:
 
    ```bash
