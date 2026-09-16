@@ -7,6 +7,7 @@ import { CategoriesTab } from "@/components/settings/categories-tab";
 import { HolidaysTab } from "@/components/settings/holidays-tab";
 import { RangeListTab } from "@/components/settings/range-list-tab";
 import { ImportTab } from "@/components/settings/import-tab";
+import { BackupTab } from "@/components/settings/backup-tab";
 
 const TABS = [
   { id: "general", label: "Allgemein" },
@@ -15,6 +16,7 @@ const TABS = [
   { id: "sick", label: "Krankmeldungen" },
   { id: "vacation", label: "Urlaub" },
   { id: "import", label: "Excel-Import" },
+  { id: "backup", label: "Backup" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -46,6 +48,7 @@ export default function SettingsPage() {
           {tab === "sick" && <RangeListTab endpoint="/api/sick-leaves" label="Krankheitszeiten – werden bei der Arbeitszeitberechnung ausgeschlossen." />}
           {tab === "vacation" && <RangeListTab endpoint="/api/vacations" label="Urlaubszeiträume – zählen auf das Urlaubskontingent." />}
           {tab === "import" && <ImportTab />}
+          {tab === "backup" && <BackupTab />}
         </div>
       </div>
     </div>
