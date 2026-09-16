@@ -7,6 +7,7 @@ import {
   loadTimetable,
 } from "./data-context";
 import { computeDay, DayCalcResult } from "./day-calc";
+import { monthKey } from "./school-year";
 import { addDays } from "./time";
 
 export function enumerateDates(start: Date, end: Date): Date[] {
@@ -115,4 +116,43 @@ export async function computeRangeSummary(start: Date, end: Date): Promise<Range
     .sort((a, b) => b.hours - a.hours);
 
   return { days, totals };
+}
+
+export interface MonthBucket {
+  key: string; // "YYYY-MM"
+  nettoHours: number;
+  sollHours: number;
+  blocksWorked: number;
+  blocksSoll: number;
+  workdayCount: number;
+}
+
+/**
+ * Bündelt bereits berechnete Tage nach Kalendermonat, z.B. für eine Jahresübersicht
+ * über ein Schuljahr hinweg (August bis Juli, über zwei Kalenderjahre).
+ */
+export function bucketByMonth(days: DayCalcResult[]): MonthBucket[] {
+  const buckets = new Map<string, MonthBucket>();
+  for (const day of days) {
+    const key = monthKey(day.date);
+    const bucket = buckets.get(key) ?? {
+      key,
+      nettoHours: 0,
+      sollHours: 0,
+      blocksWorked: 0,
+      blocksSoll: 0,
+      workdayCount: 0,
+    };
+    bucket.nettoHours += day.nettoHours;
+    bucket.sollHours += day.sollHours;
+    bucket.blocksWorked += day.blocksWorked;
+    bucket.blocksSoll += day.blocksSoll;
+    if (day.status === "WERKTAG") bucket.workdayCount++;
+    buckets.set(key, bucket);
+  }
+  for (const bucket of buckets.values()) {
+    bucket.nettoHours = Math.round(bucket.nettoHours * 100) / 100;
+    bucket.sollHours = Math.round(bucket.sollHours * 100) / 100;
+  }
+  return [...buckets.values()].sort((a, b) => (a.key < b.key ? -1 : 1));
 }

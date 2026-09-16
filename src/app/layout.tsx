@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeScript } from "@/components/theme-script";
 import { AppShell } from "@/components/app-shell";
 import { EntryModalProvider } from "@/components/entry-modal-provider";
+import { DisplayModeProvider } from "@/components/display-mode-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -28,9 +29,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeScript />
       </head>
       <body className="h-full antialiased">
-        <EntryModalProvider>
-          <AppShell>{children}</AppShell>
-        </EntryModalProvider>
+        <DisplayModeProvider>
+          <EntryModalProvider>
+            <AppShell>{children}</AppShell>
+          </EntryModalProvider>
+        </DisplayModeProvider>
       </body>
     </html>
   );
