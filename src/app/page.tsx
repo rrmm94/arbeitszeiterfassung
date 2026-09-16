@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui";
 import { StatCard, ProgressBar, SplitBar } from "@/components/dashboard/stat-card";
 import { WeeklyChart } from "@/components/dashboard/weekly-chart";
-import { useDisplayMode, formatIstSoll } from "@/components/display-mode-provider";
 import { formatHours } from "@/lib/time";
 
 interface DashboardData {
@@ -38,6 +37,10 @@ const MONTH_NAMES = [
   "Juli", "August", "September", "Oktober", "November", "Dezember",
 ];
 
+function pct(ist: number, soll: number): number {
+  return soll > 0 ? Math.round((ist / soll) * 100) : 0;
+}
+
 function shiftMonth(year: number, month: number, delta: number): [number, number] {
   const total = year * 12 + (month - 1) + delta;
   return [Math.floor(total / 12), (total % 12) + 1];
@@ -48,7 +51,6 @@ export default function DashboardPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [data, setData] = useState<DashboardData | null>(null);
-  const { percentMode } = useDisplayMode();
 
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -75,11 +77,6 @@ export default function DashboardPage() {
 
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
 
-  const maxCategoryHours = data && data.month.totals.homeHoursByCategory.length > 0
-    ? Math.max(...data.month.totals.homeHoursByCategory.map((x) => x.hours))
-    : 0;
-  const totalHomeHours = data ? data.month.totals.homeHoursByCategory.reduce((s, c) => s + c.hours, 0) : 0;
-
   return (
     <div>
       <PageHeader
@@ -103,36 +100,28 @@ export default function DashboardPage() {
       {!data ? (
         <div className="flex h-64 items-center justify-center text-[13px] text-text-tertiary">Lädt…</div>
       ) : (
-        <DashboardContent data={data} percentMode={percentMode} maxCategoryHours={maxCategoryHours} totalHomeHours={totalHomeHours} />
+        <DashboardContent data={data} />
       )}
     </div>
   );
 }
 
-function DashboardContent({
-  data,
-  percentMode,
-  maxCategoryHours,
-  totalHomeHours,
-}: {
-  data: DashboardData;
-  percentMode: boolean;
-  maxCategoryHours: number;
-  totalHomeHours: number;
-}) {
+function DashboardContent({ data }: { data: DashboardData }) {
   const { month, schoolYear, weeks, vacation } = data;
+
+  const maxCategoryHours = month.totals.homeHoursByCategory.length > 0
+    ? Math.max(...month.totals.homeHoursByCategory.map((x) => x.hours))
+    : 0;
+  const totalHomeHours = month.totals.homeHoursByCategory.reduce((s, c) => s + c.hours, 0);
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-8">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Arbeitszeit (Monat)"
-          value={
-            percentMode
-              ? formatIstSoll(month.totals.nettoHours, month.totals.sollHours, true, formatHours)
-              : formatHours(month.totals.nettoHours)
-          }
-          sub={!percentMode ? `Soll: ${formatHours(month.totals.sollHours)}` : undefined}
+          value={formatHours(month.totals.nettoHours)}
+          percent={pct(month.totals.nettoHours, month.totals.sollHours)}
+          sub={`Soll: ${formatHours(month.totals.sollHours)}`}
         />
         <StatCard
           label="Über-/Minderstunden (Monat)"
@@ -142,13 +131,15 @@ function DashboardContent({
         />
         <StatCard
           label="Unterrichtsblöcke (Monat)"
-          value={formatIstSoll(month.totals.blocksWorked, month.totals.blocksSoll, percentMode, (v) => String(Math.round(v)))}
-          sub={!percentMode ? `${month.totals.workdayCount} Werktage` : undefined}
+          value={`${month.totals.blocksWorked} / ${month.totals.blocksSoll}`}
+          percent={pct(month.totals.blocksWorked, month.totals.blocksSoll)}
+          sub={`${month.totals.workdayCount} Werktage`}
         />
         <StatCard
           label="Urlaub"
-          value={formatIstSoll(vacation.used, vacation.budget, percentMode, (v) => String(Math.round(v)))}
-          sub={!percentMode ? `${vacation.remaining} Tage offen` : undefined}
+          value={`${vacation.used} / ${vacation.budget}`}
+          percent={pct(vacation.used, vacation.budget)}
+          sub={`${vacation.remaining} Tage offen`}
         />
       </div>
 
@@ -163,10 +154,7 @@ function DashboardContent({
             <h3 className="mb-3 text-[12.5px] font-medium text-text-primary">Auslastung (Monat)</h3>
             <div className="mb-1 flex items-baseline justify-between">
               <span className="text-[20px] font-light tabular text-text-primary">
-                {month.totals.sollHours > 0
-                  ? Math.round((month.totals.nettoHours / month.totals.sollHours) * 100)
-                  : 0}
-                %
+                {pct(month.totals.nettoHours, month.totals.sollHours)}%
               </span>
             </div>
             <ProgressBar value={month.totals.nettoHours} max={Math.max(month.totals.sollHours, month.totals.nettoHours)} />
@@ -174,33 +162,12 @@ function DashboardContent({
 
           <div className="rounded-lg border border-border bg-bg-panel p-4">
             <h3 className="mb-3 text-[12.5px] font-medium text-text-primary">Schule vs. außerschulisch</h3>
-            {percentMode ? (
-              <div className="flex flex-col gap-2 text-[12.5px]">
-                {(() => {
-                  const total = month.totals.schoolHours + month.totals.homeHours;
-                  const schoolPct = total > 0 ? Math.round((month.totals.schoolHours / total) * 100) : 0;
-                  return (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-text-secondary">Schule</span>
-                        <span className="tabular text-text-primary">{schoolPct}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-secondary">Außerschulisch</span>
-                        <span className="tabular text-text-primary">{100 - schoolPct}%</span>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            ) : (
-              <SplitBar
-                segments={[
-                  { value: month.totals.schoolHours, color: "var(--accent)", label: "Schule" },
-                  { value: month.totals.homeHours, color: "var(--text-tertiary)", label: "Außerschulisch" },
-                ]}
-              />
-            )}
+            <SplitBar
+              segments={[
+                { value: month.totals.schoolHours, color: "var(--accent)", label: "Schule" },
+                { value: month.totals.homeHours, color: "var(--text-tertiary)", label: "Außerschulisch" },
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -224,8 +191,9 @@ function DashboardContent({
                       }}
                     />
                   </div>
-                  <span className="w-12 text-right text-[12px] tabular text-text-primary">
-                    {percentMode ? `${Math.round((c.hours / Math.max(totalHomeHours, 0.01)) * 100)}%` : `${c.hours}h`}
+                  <span className="w-14 shrink-0 text-right text-[12px] tabular text-text-primary">{c.hours}h</span>
+                  <span className="w-10 shrink-0 text-right text-[11.5px] tabular text-text-tertiary">
+                    {Math.round((c.hours / Math.max(totalHomeHours, 0.01)) * 100)}%
                   </span>
                 </div>
               ))}

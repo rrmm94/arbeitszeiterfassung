@@ -3,11 +3,13 @@ import { ReactNode } from "react";
 export function StatCard({
   label,
   value,
+  percent,
   sub,
   accent,
 }: {
   label: string;
   value: ReactNode;
+  percent?: number;
   sub?: ReactNode;
   accent?: "positive" | "negative" | "neutral";
 }) {
@@ -16,7 +18,12 @@ export function StatCard({
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-bg-panel p-4">
       <span className="text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">{label}</span>
-      <span className={`text-[22px] font-light tabular leading-none ${accentClass}`}>{value}</span>
+      <span className="flex items-baseline gap-2">
+        <span className={`text-[22px] font-light tabular leading-none ${accentClass}`}>{value}</span>
+        {percent !== undefined && (
+          <span className="text-[13px] font-light tabular leading-none text-text-tertiary">{Math.round(percent)}%</span>
+        )}
+      </span>
       {sub && <span className="text-[12px] text-text-secondary">{sub}</span>}
     </div>
   );
@@ -53,6 +60,7 @@ export function SplitBar({
           <div key={i} className="flex items-center gap-1.5 text-[12px] text-text-secondary">
             <span className="h-2 w-2 rounded-full" style={{ background: seg.color }} />
             {seg.label} <span className="tabular text-text-primary">{seg.value.toFixed(1)}h</span>
+            <span className="tabular text-text-tertiary">({Math.round((seg.value / total) * 100)}%)</span>
           </div>
         ))}
       </div>

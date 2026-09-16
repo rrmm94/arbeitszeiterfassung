@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { MonthlyChart } from "@/components/dashboard/monthly-chart";
 import { CategoryDistribution } from "@/components/dashboard/category-distribution";
-import { useDisplayMode, formatIstSoll } from "@/components/display-mode-provider";
 import { formatHours } from "@/lib/time";
 
 interface MonthRow {
@@ -39,12 +38,24 @@ function schoolYearLabel(startYear: number) {
   return `Schuljahr ${startYear}/${(startYear + 1).toString().slice(-2)}`;
 }
 
+function pct(ist: number, soll: number): number {
+  return soll > 0 ? Math.round((ist / soll) * 100) : 0;
+}
+
+// Zeigt "Ist / Soll" mit dem Anteil in Prozent dahinter, dezent abgesetzt.
+function IstSollCell({ ist, soll, format }: { ist: number; soll: number; format: (v: number) => string }) {
+  return (
+    <span className="tabular text-text-primary">
+      {format(ist)} / {format(soll)} <span className="text-text-tertiary">({pct(ist, soll)}%)</span>
+    </span>
+  );
+}
+
 export default function YearOverviewPage() {
   const now = new Date();
   const defaultStartYear = now.getMonth() + 1 >= 8 ? now.getFullYear() : now.getFullYear() - 1;
   const [startYear, setStartYear] = useState(defaultStartYear);
   const [data, setData] = useState<YearOverviewData | null>(null);
-  const { percentMode } = useDisplayMode();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/year-overview?startYear=${startYear}`);
@@ -81,12 +92,9 @@ export default function YearOverviewPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard
               label="Arbeitszeit (Schuljahr)"
-              value={
-                percentMode
-                  ? formatIstSoll(data.totals.nettoHours, data.totals.sollHours, true, formatHours)
-                  : formatHours(data.totals.nettoHours)
-              }
-              sub={!percentMode ? `Soll: ${formatHours(data.totals.sollHours)}` : undefined}
+              value={formatHours(data.totals.nettoHours)}
+              percent={pct(data.totals.nettoHours, data.totals.sollHours)}
+              sub={`Soll: ${formatHours(data.totals.sollHours)}`}
             />
             <StatCard
               label="Über-/Minderstunden"
@@ -95,11 +103,12 @@ export default function YearOverviewPage() {
             />
             <StatCard
               label="Unterrichtsblöcke (Schuljahr)"
-              value={formatIstSoll(data.totals.blocksWorked, data.totals.blocksSoll, percentMode, (v) => String(Math.round(v)))}
+              value={`${data.totals.blocksWorked} / ${data.totals.blocksSoll}`}
+              percent={pct(data.totals.blocksWorked, data.totals.blocksSoll)}
             />
             <StatCard
               label="Auslastung (Schuljahr)"
-              value={`${data.totals.sollHours > 0 ? Math.round((data.totals.nettoHours / data.totals.sollHours) * 100) : 0}%`}
+              value={`${pct(data.totals.nettoHours, data.totals.sollHours)}%`}
             />
           </div>
 
@@ -116,13 +125,13 @@ export default function YearOverviewPage() {
                     Monat
                   </th>
                   <th className="border-b border-l border-border bg-bg-panel p-2.5 text-right text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">
-                    Arbeitszeit {percentMode ? "" : "(Ist / Soll)"}
+                    Arbeitszeit (Ist / Soll)
                   </th>
                   <th className="border-b border-l border-border bg-bg-panel p-2.5 text-right text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">
                     Differenz
                   </th>
                   <th className="border-b border-l border-border bg-bg-panel p-2.5 text-right text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">
-                    Blöcke {percentMode ? "" : "(Ist / Soll)"}
+                    Blöcke (Ist / Soll)
                   </th>
                   <th className="border-b border-l border-border bg-bg-panel p-2.5 text-right text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">
                     Werktage
@@ -137,10 +146,8 @@ export default function YearOverviewPage() {
                       <td className="border-b border-border p-2.5 text-text-primary">
                         {m.label} {m.year}
                       </td>
-                      <td className="border-b border-l border-border p-2.5 text-right tabular text-text-primary">
-                        {percentMode
-                          ? formatIstSoll(m.nettoHours, m.sollHours, true, formatHours)
-                          : `${formatHours(m.nettoHours)} / ${formatHours(m.sollHours)}`}
+                      <td className="border-b border-l border-border p-2.5 text-right">
+                        <IstSollCell ist={m.nettoHours} soll={m.sollHours} format={formatHours} />
                       </td>
                       <td
                         className={`border-b border-l border-border p-2.5 text-right tabular ${
@@ -150,10 +157,8 @@ export default function YearOverviewPage() {
                         {diff >= 0 ? "+" : ""}
                         {formatHours(diff)}
                       </td>
-                      <td className="border-b border-l border-border p-2.5 text-right tabular text-text-primary">
-                        {percentMode
-                          ? formatIstSoll(m.blocksWorked, m.blocksSoll, true, (v) => String(Math.round(v)))
-                          : `${m.blocksWorked} / ${m.blocksSoll}`}
+                      <td className="border-b border-l border-border p-2.5 text-right">
+                        <IstSollCell ist={m.blocksWorked} soll={m.blocksSoll} format={(v) => String(Math.round(v))} />
                       </td>
                       <td className="border-b border-l border-border p-2.5 text-right tabular text-text-secondary">
                         {m.workdayCount}
@@ -165,10 +170,8 @@ export default function YearOverviewPage() {
               <tfoot>
                 <tr>
                   <td className="p-2.5 font-medium text-text-primary">Gesamt</td>
-                  <td className="border-l border-border p-2.5 text-right tabular font-medium text-text-primary">
-                    {percentMode
-                      ? formatIstSoll(data.totals.nettoHours, data.totals.sollHours, true, formatHours)
-                      : `${formatHours(data.totals.nettoHours)} / ${formatHours(data.totals.sollHours)}`}
+                  <td className="border-l border-border p-2.5 text-right font-medium">
+                    <IstSollCell ist={data.totals.nettoHours} soll={data.totals.sollHours} format={formatHours} />
                   </td>
                   <td
                     className={`border-l border-border p-2.5 text-right tabular font-medium ${
@@ -178,10 +181,12 @@ export default function YearOverviewPage() {
                     {data.totals.diffHours >= 0 ? "+" : ""}
                     {formatHours(data.totals.diffHours)}
                   </td>
-                  <td className="border-l border-border p-2.5 text-right tabular font-medium text-text-primary">
-                    {percentMode
-                      ? formatIstSoll(data.totals.blocksWorked, data.totals.blocksSoll, true, (v) => String(Math.round(v)))
-                      : `${data.totals.blocksWorked} / ${data.totals.blocksSoll}`}
+                  <td className="border-l border-border p-2.5 text-right font-medium">
+                    <IstSollCell
+                      ist={data.totals.blocksWorked}
+                      soll={data.totals.blocksSoll}
+                      format={(v) => String(Math.round(v))}
+                    />
                   </td>
                   <td className="border-l border-border p-2.5" />
                 </tr>

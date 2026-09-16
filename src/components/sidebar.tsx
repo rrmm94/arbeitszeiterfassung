@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
-import { PercentToggle } from "./percent-toggle";
 import { useEntryModal } from "./entry-modal-provider";
 
 function currentSchoolYearLabel(startMonth: number): string {
@@ -39,10 +38,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-bg px-3 py-4">
       <div className="mb-5 flex items-center justify-between px-2">
         <span className="text-[13px] font-medium text-text-primary">Arbeitszeit</span>
-        <div className="flex items-center gap-0.5">
-          <PercentToggle />
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
       </div>
 
       <button
