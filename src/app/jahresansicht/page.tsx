@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { MonthlyChart } from "@/components/dashboard/monthly-chart";
+import { CategoryDistribution } from "@/components/dashboard/category-distribution";
 import { useDisplayMode, formatIstSoll } from "@/components/display-mode-provider";
 import { formatHours } from "@/lib/time";
 
@@ -28,6 +29,9 @@ interface YearOverviewData {
     diffHours: number;
     blocksWorked: number;
     blocksSoll: number;
+    schoolHours: number;
+    homeHours: number;
+    homeHoursByCategory: { categoryId: number; name: string; color: string; hours: number }[];
   };
 }
 
@@ -183,6 +187,20 @@ export default function YearOverviewPage() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+
+          <div className="rounded-lg border border-border bg-bg-panel p-4">
+            <h3 className="mb-1 text-[12.5px] font-medium text-text-primary">Zeitverteilung nach Kategorie</h3>
+            <p className="mb-4 text-[11.5px] text-text-secondary">
+              Wie sich die gesamte Arbeitszeit im Schuljahr auf Unterricht und die einzelnen Kategorien
+              außerschulischer Arbeit aufteilt.
+            </p>
+            <CategoryDistribution
+              items={[
+                { name: "Unterricht (Schule)", color: "var(--accent)", hours: data.totals.schoolHours },
+                ...data.totals.homeHoursByCategory.map((c) => ({ name: c.name, color: c.color, hours: c.hours })),
+              ]}
+            />
           </div>
         </div>
       )}
