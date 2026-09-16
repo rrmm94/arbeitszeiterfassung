@@ -84,7 +84,9 @@ export async function computeRangeSummary(start: Date, end: Date): Promise<Range
     totals.blocksSoll += day.blocksSoll;
     totals.schoolHours += day.schoolMinutes / 60;
     totals.homeHours += day.homeMinutes / 60;
-    if (day.status === "WERKTAG") totals.workdayCount++;
+    // "Werktage" hier im Sinne von Tagen, die zur allgemeinen Arbeitszeit-Soll zählen (siehe
+    // day-calc.ts: Montag-Freitag ohne Feiertag/Krank/Urlaub, Ferien eingeschlossen).
+    if (day.sollHours > 0) totals.workdayCount++;
     if (day.status === "KRANK") totals.sickDays++;
     if (day.status === "URLAUB") totals.vacationDaysUsed++;
     if (day.status === "WOCHENENDE") totals.weekendHours += day.nettoHours;

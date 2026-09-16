@@ -9,7 +9,7 @@ import type {
 } from "@prisma/client";
 import { classifyDay, DayContext, DayStatus } from "./day-status";
 import { halfYearForDate } from "./school-year";
-import { isoWeekday, isoWeekNumber, minutesToHours, segmentMinutes } from "./time";
+import { isoWeekday, isoWeekNumber, isWeekend, minutesToHours, segmentMinutes } from "./time";
 
 export type DayEntryWithSegments = DayEntry & {
   schoolSegments: SchoolSegment[];
@@ -44,16 +44,24 @@ export function computeDaySoll(
   settings: Settings,
   timetable: TimetableEntry[]
 ): { sollMinutes: number; blocksSoll: number; bereitschaftBlocks: number } {
+  // Die allgemeine Arbeitszeit-Soll (Vergleich zur klassischen 40h-Woche) gilt für jeden
+  // Werktag Montag-Freitag, der nicht Feiertag, Krank oder Urlaub ist - Schulferien zählen
+  // dabei mit, da sie für die Lehrkraft keine Freizeit sind, sondern reguläre Arbeitszeit
+  // (Vor-/Nachbereitung, Fortbildung, ...). Nur Unterrichtsblöcke entfallen in den Ferien.
+  // Wochenendtage innerhalb einer Ferienperiode zählen weiterhin als Wochenende (kein Soll).
+  const countsTowardGeneralSoll = (status === "WERKTAG" || status === "FERIEN") && !isWeekend(date);
+  const sollMinutes = countsTowardGeneralSoll
+    ? (settings.compareWeeklyHours * settings.employmentFactor * 60) / 5
+    : 0;
+
   if (status !== "WERKTAG") {
-    return { sollMinutes: 0, blocksSoll: 0, bereitschaftBlocks: 0 };
+    return { sollMinutes, blocksSoll: 0, bereitschaftBlocks: 0 };
   }
   const halfYear = halfYearForDate(date, settings);
   const weekday = isoWeekday(date);
   const daySlots = timetable.filter((t) => t.halfYear === halfYear && t.weekday === weekday);
   const blocksSoll = daySlots.filter((s) => s.type === "UNTERRICHT").length;
   const bereitschaftBlocks = daySlots.filter((s) => s.type === "BEREITSCHAFT").length;
-  const sollMinutesPerWeek = settings.compareWeeklyHours * settings.employmentFactor * 60;
-  const sollMinutes = sollMinutesPerWeek / 5;
   return { sollMinutes, blocksSoll, bereitschaftBlocks };
 }
 
