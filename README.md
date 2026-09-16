@@ -36,33 +36,25 @@ App läuft unter http://localhost:3000.
 
 ## Deployment auf Unraid (Docker)
 
-Das Repository ist **privat**. Zum Klonen auf dem Server wird deshalb ein schreibgeschützter
-SSH-Deploy-Key verwendet (nur Lesezugriff auf genau dieses Repo) statt eines normalen
-GitHub-Logins.
-
-1. Auf Unraid `git` installieren: Community Applications → Plugin **"NerdTools"** installieren
-   → in den NerdTools-Einstellungen das Paket **git** aktivieren.
-
-2. Den privaten Deploy-Key auf dem Server ablegen (Inhalt liegt beim Repo-Owner bzw. wurde ihm
-   einmalig mitgeteilt):
-
-   ```bash
-   mkdir -p ~/.ssh
-   nano ~/.ssh/arbeitszeit_deploy_key   # Inhalt einfügen, speichern
-   chmod 600 ~/.ssh/arbeitszeit_deploy_key
-   ```
-
-3. Ordner anlegen und Repository per SSH klonen (der Ordner liegt unter `appdata`, damit er von
-   den meisten Unraid-Backup-Plugins mitgesichert wird):
+1. Auf dem Unraid-Server ein Terminal öffnen (Web-GUI oben rechts das "​>_"-Symbol, oder per SSH)
+   und einen Ordner unter `appdata` anlegen (der wird von den meisten Unraid-Backup-Plugins
+   mitgesichert):
 
    ```bash
    mkdir -p /mnt/user/appdata/arbeitszeit-src
    cd /mnt/user/appdata/arbeitszeit-src
-   GIT_SSH_COMMAND="ssh -i ~/.ssh/arbeitszeit_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
-     git clone git@github.com:rrmm94/arbeitszeiterfassung.git .
    ```
 
-4. Mit Docker Compose starten (falls `docker compose` nicht erkannt wird, `docker-compose`
+2. Repository herunterladen - kein `git` auf dem Host nötig, geht direkt per `curl`:
+
+   ```bash
+   curl -L https://github.com/rrmm94/arbeitszeiterfassung/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
+   ```
+
+   (Falls `git` verfügbar ist, geht alternativ auch `git clone
+   https://github.com/rrmm94/arbeitszeiterfassung.git .`)
+
+3. Mit Docker Compose starten (falls `docker compose` nicht erkannt wird, `docker-compose`
    mit Bindestrich probieren):
 
    ```bash
@@ -73,10 +65,10 @@ GitHub-Logins.
    (`app.db`) persistent gespeichert wird. Beim Start werden Datenbank-Migrationen
    automatisch ausgeführt.
 
-5. App ist danach unter `http://<unraid-ip>:7536` erreichbar. Der Port lässt sich in
+4. App ist danach unter `http://<unraid-ip>:7536` erreichbar. Der Port lässt sich in
    `docker-compose.yml` über den ersten Wert bei `ports` (Host-Port) anpassen.
 
-6. Über die Unraid-GUI kann das Compose-Setup alternativ auch über das
+5. Über die Unraid-GUI kann das Compose-Setup alternativ auch über das
    "Compose Manager"-Plugin (Community Applications) verwaltet werden, falls für
    Neustarts/Logs kein Terminalzugriff gewünscht ist.
 
@@ -84,19 +76,12 @@ GitHub-Logins.
 
 ```bash
 cd /mnt/user/appdata/arbeitszeit-src
-GIT_SSH_COMMAND="ssh -i ~/.ssh/arbeitszeit_deploy_key -o IdentitiesOnly=yes" git pull
+curl -L https://github.com/rrmm94/arbeitszeiterfassung/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
 docker compose up -d --build
 ```
 
 Die Datenbank in `./data` bleibt dabei erhalten, da sie außerhalb des Quellcode-Ordners in
 einem eigenen Docker-Volume-Verzeichnis liegt.
-
-### Deploy-Key verwalten
-
-Der SSH-Deploy-Key hat ausschließlich Lesezugriff auf dieses eine Repository (kein Zugriff auf
-den restlichen GitHub-Account). Verwaltet wird er unter GitHub → dieses Repo → **Settings →
-Deploy keys**; dort lässt er sich jederzeit widerrufen und durch einen neuen ersetzen, falls
-z.B. der Unraid-Server einmal neu aufgesetzt wird.
 
 ### Excel-Import
 
